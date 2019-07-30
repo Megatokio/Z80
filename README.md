@@ -1,3 +1,4 @@
 # Z80
 
-Configurable &amp; fast Z80 CPU Emulation.
+Configurable & fast Z80 CPU Emulation.
+

@@ -24,7 +24,7 @@
 	PERFORMANCE OF THIS SOFTWARE.
 
 
-	Z80 Emulator	version 2.2.5
+	Z80 Emulator	version 2.3.0
 					initially based on fMSX; Copyright (C) Marat Fayzullin 1994,1995
 
 	1995-03-28 kio	Started work on C version
@@ -55,11 +55,12 @@
 */
 
 #define	 Z80_SOURCE			// -> include other class header files or typedefs only
-#include "Z80options.h"		// customizations, other includes and/or typedefs
 #include "Z80.h"			// major header file
 #include "Z80macros.h"		// required and optional macros
 #include "Z80opcodes.h"		// opcode enumeration
+#ifdef Z80_have_class_FD
 #include "unix/FD.h"
+#endif
 
 
 
@@ -133,32 +134,32 @@ void Z80::reset_registers()
 // ======================================================================
 
 
-uint16 Z80::peek2( uint16 addr )
+uint16 Z80::peek2( uint16 addr ) const noexcept
 {
 	return peek(addr) + (peek(addr+1)<<8);
 //	return uint16(peek(addr)) + uint16(uint16(peek(addr+1))<<8);
 }
 
-void Z80::poke2 ( uint16 addr, uint16 n )
+void Z80::poke2 ( uint16 addr, uint16 n ) noexcept
 {
 	poke( addr,   uint8(n) );
 	poke( addr+1, uint8(n>>8) );
 }
 
-uint16 Z80::pop2 ( )
+uint16 Z80::pop2 ( ) noexcept
 {
 	registers.sp += 2;
 	return peek2( registers.sp - 2 );
 }
 
-void Z80::push2 ( uint16 n )
+void Z80::push2 ( uint16 n ) noexcept
 {
 	registers.sp -= 2;
 	poke2( registers.sp, n );
 }
 
 
-void Z80::copyRamToBuffer( uint16 q, uint8* z, uint16 cnt ) throw()
+void Z80::copyRamToBuffer( uint16 q, uint8* z, uint16 cnt ) noexcept
 {
 	uint16 n = CPU_PAGESIZE-(q&CPU_PAGEMASK);
 	do
@@ -170,7 +171,7 @@ void Z80::copyRamToBuffer( uint16 q, uint8* z, uint16 cnt ) throw()
 	while( cnt );
 }
 
-void Z80::copyBufferToRam( uint8 const* q, uint16 z, uint16 cnt ) throw()
+void Z80::copyBufferToRam( uint8 const* q, uint16 z, uint16 cnt ) noexcept
 {
 	uint16 n = CPU_PAGESIZE-(z&CPU_PAGEMASK);
 	do
@@ -182,7 +183,7 @@ void Z80::copyBufferToRam( uint8 const* q, uint16 z, uint16 cnt ) throw()
 	while( cnt );
 }
 
-void Z80::copyRamToBuffer( uint16 q, CoreByte* z, uint16 cnt ) throw()
+void Z80::copyRamToBuffer( uint16 q, CoreByte* z, uint16 cnt ) noexcept
 {
 	uint16 n = CPU_PAGESIZE-(q&CPU_PAGEMASK);
 	do
@@ -194,7 +195,7 @@ void Z80::copyRamToBuffer( uint16 q, CoreByte* z, uint16 cnt ) throw()
 	while( cnt );
 }
 
-void Z80::copyBufferToRam( CoreByte const* q, uint16 z, uint16 cnt ) throw()
+void Z80::copyBufferToRam( CoreByte const* q, uint16 z, uint16 cnt ) noexcept
 {
 	uint16 n = CPU_PAGESIZE-(z&CPU_PAGEMASK);
 	do
@@ -206,8 +207,8 @@ void Z80::copyBufferToRam( CoreByte const* q, uint16 z, uint16 cnt ) throw()
 	while( cnt );
 }
 
-
-void Z80::readRamFromFile( FD& fd, uint16 z, uint16 cnt ) throw(file_error)
+#ifdef Z80_have_class_FD
+void Z80::readRamFromFile( class FD& fd, uint16 z, uint16 cnt )
 {
 	uint8 bu[CPU_PAGESIZE];
 	uint16 n = CPU_PAGESIZE-(z&CPU_PAGEMASK);
@@ -221,7 +222,7 @@ void Z80::readRamFromFile( FD& fd, uint16 z, uint16 cnt ) throw(file_error)
 	while( cnt );
 }
 
-void Z80::writeRamToFile( FD& fd, uint16 q, uint16 cnt ) throw(file_error)
+void Z80::writeRamToFile( class FD& fd, uint16 q, uint16 cnt )
 {
 	uint8 bu[CPU_PAGESIZE];
 	uint16 n = CPU_PAGESIZE-(q&CPU_PAGEMASK);
@@ -234,6 +235,7 @@ void Z80::writeRamToFile( FD& fd, uint16 q, uint16 cnt ) throw(file_error)
 	}
 	while( cnt );
 }
+#endif
 
 
 /* ----	attach ram/rom to address space --------------
@@ -259,7 +261,7 @@ void Z80::writeRamToFile( FD& fd, uint16 q, uint16 cnt ) throw(file_error)
 		data pointers in PgInfo struct point to the virtual location of address $0000
 		so that you can access data using page.data_r[addr>>CPU_PAGEBITS][addr]
 */
-void Z80::mapRam( uint16 addr, uint16 size, CoreByte* r_data, CoreByte* w_data )
+void Z80::mapRam( uint16 addr, uint16 size, CoreByte* r_data, CoreByte* w_data ) noexcept
 {
 	size -= CPU_PAGESIZE;					// note: size=0  =>  size=0x10000
 
@@ -269,8 +271,8 @@ void Z80::mapRam( uint16 addr, uint16 size, CoreByte* r_data, CoreByte* w_data )
 	assert((size&CPU_PAGEMASK)==0);		// addr+size ebenfass wieder
 	assert(size<=0xffff-addr);			// wrap around address space end
 
-	PgInfo* a = page + (addr>>CPU_PAGEBITS);
-	PgInfo* e = a    + (size>>CPU_PAGEBITS);
+	PageInfo* a = page + (addr>>CPU_PAGEBITS);
+	PageInfo* e = a    + (size>>CPU_PAGEBITS);
 
 	r_data -= addr;
 	w_data -= addr;
@@ -282,7 +284,7 @@ void Z80::mapRam( uint16 addr, uint16 size, CoreByte* r_data, CoreByte* w_data )
 	}
 }
 
-void Z80::mapRam( uint16 addr, uint16 size, CoreByte* data )
+void Z80::mapRam( uint16 addr, uint16 size, CoreByte* data ) noexcept
 {
 	size -= CPU_PAGESIZE;					// note: size=0  =>  size=0x10000
 
@@ -291,8 +293,8 @@ void Z80::mapRam( uint16 addr, uint16 size, CoreByte* data )
 	assert((size&CPU_PAGEMASK)==0);		// addr+size ebenfalls wieder
 	assert(size<=0xffff-addr);			// wrap around address space end
 
-	PgInfo* a = page + (addr>>CPU_PAGEBITS);
-	PgInfo* e = a    + (size>>CPU_PAGEBITS);
+	PageInfo* a = page + (addr>>CPU_PAGEBITS);
+	PageInfo* e = a    + (size>>CPU_PAGEBITS);
 
 	data -= addr;
 
@@ -302,7 +304,7 @@ void Z80::mapRam( uint16 addr, uint16 size, CoreByte* data )
 	}
 }
 
-void Z80::mapNoWom( uint16 addr, uint16 size, CoreByte* data )
+void Z80::mapNoWom( uint16 addr, uint16 size, CoreByte* data ) noexcept
 {
 	size -= CPU_PAGESIZE;				// note: size=0  =>  size=0x10000
 
@@ -311,8 +313,8 @@ void Z80::mapNoWom( uint16 addr, uint16 size, CoreByte* data )
 	assert((size&CPU_PAGEMASK)==0);	// addr+size ebenfalls wieder
 	assert(size<=0xffff-addr);		// wrap around address space end
 
-	PgInfo* a = page + (addr>>CPU_PAGEBITS);
-	PgInfo* e = a    + (size>>CPU_PAGEBITS);
+	PageInfo* a = page + (addr>>CPU_PAGEBITS);
+	PageInfo* e = a    + (size>>CPU_PAGEBITS);
 
 	data -= addr;
 
@@ -323,7 +325,7 @@ void Z80::mapNoWom( uint16 addr, uint16 size, CoreByte* data )
 	}
 }
 
-void Z80::mapWom ( uint16 addr, uint16 size, CoreByte* data )
+void Z80::mapWom ( uint16 addr, uint16 size, CoreByte* data ) noexcept
 {
 	size -= CPU_PAGESIZE;				// note: size=0  =>  size=0x10000
 
@@ -332,8 +334,8 @@ void Z80::mapWom ( uint16 addr, uint16 size, CoreByte* data )
 	assert((size&CPU_PAGEMASK)==0);	// addr+size ebenfalls wieder
 	assert(size<=0xffff-addr);		// wrap around address space end
 
-	PgInfo* a = page + (addr>>CPU_PAGEBITS);
-	PgInfo* e = a    + (size>>CPU_PAGEBITS);
+	PageInfo* a = page + (addr>>CPU_PAGEBITS);
+	PageInfo* e = a    + (size>>CPU_PAGEBITS);
 
 	data -= addr;
 
@@ -345,7 +347,7 @@ void Z80::mapWom ( uint16 addr, uint16 size, CoreByte* data )
 
 /*	map a single cpu page mirrored multiple times into address space
 */
-void Z80::mapNoRom( uint16 addr, uint16 size, CoreByte* data )
+void Z80::mapNoRom( uint16 addr, uint16 size, CoreByte* data ) noexcept
 {
 	size -= CPU_PAGESIZE;					// note: size=0  =>  size=0x10000
 
@@ -354,8 +356,8 @@ void Z80::mapNoRom( uint16 addr, uint16 size, CoreByte* data )
 	assert((size&CPU_PAGEMASK)==0);		// addr+size ebenfalls wieder
 	assert(size<=0xffff-addr);			// wrap around address space end
 
-	PgInfo* a = page + (addr>>CPU_PAGEBITS);
-	PgInfo* e = a    + (size>>CPU_PAGEBITS);
+	PageInfo* a = page + (addr>>CPU_PAGEBITS);
+	PageInfo* e = a    + (size>>CPU_PAGEBITS);
 
 	data -= addr;
 
@@ -366,7 +368,7 @@ void Z80::mapNoRom( uint16 addr, uint16 size, CoreByte* data )
 	}
 }
 
-void Z80::mapRom( uint16 addr, uint16 size, CoreByte* data )
+void Z80::mapRom( uint16 addr, uint16 size, CoreByte* data ) noexcept
 {
 	size -= CPU_PAGESIZE;					// note: size=0  =>  size=0x10000
 
@@ -375,8 +377,8 @@ void Z80::mapRom( uint16 addr, uint16 size, CoreByte* data )
 	assert((size&CPU_PAGEMASK)==0);		// addr+size ebenfalls wieder
 	assert(size<=0xffff-addr);			// wrap around address space end
 
-	PgInfo* a = page + (addr>>CPU_PAGEBITS);
-	PgInfo* e = a    + (size>>CPU_PAGEBITS);
+	PageInfo* a = page + (addr>>CPU_PAGEBITS);
+	PageInfo* e = a    + (size>>CPU_PAGEBITS);
 
 	data -= addr;
 
@@ -389,7 +391,7 @@ void Z80::mapRom( uint16 addr, uint16 size, CoreByte* data )
 /*	unmap write page mem[addr,size]
 	does not reset waitmap
 */
-void Z80::unmapWom( uint16 addr, uint16 size )
+void Z80::unmapWom( uint16 addr, uint16 size ) noexcept
 {
 	size -= CPU_PAGESIZE;					// note: size=0  =>  size=0x10000
 
@@ -397,8 +399,8 @@ void Z80::unmapWom( uint16 addr, uint16 size )
 	assert((size&CPU_PAGEMASK)==0);		// addr+size ebenfalls wieder
 	assert(size<=0xffff-addr);			// wrap around address space end
 
-	PgInfo* a = page + (addr>>CPU_PAGEBITS);
-	PgInfo* e = a    + (size>>CPU_PAGEBITS);
+	PageInfo* a = page + (addr>>CPU_PAGEBITS);
+	PageInfo* e = a    + (size>>CPU_PAGEBITS);
 	CoreByte* w = nowritepage-addr;
 	assert( size_t(w)+addr == size_t(nowritepage) );
 
@@ -412,7 +414,7 @@ void Z80::unmapWom( uint16 addr, uint16 size )
 /*	unmap read page mem[addr,size]
 	clear waitmap to supplied state
 */
-void Z80::unmapRom( uint16 addr, uint16 size )
+void Z80::unmapRom( uint16 addr, uint16 size ) noexcept
 {
 	size -= CPU_PAGESIZE;					// note: size=0  =>  size=0x10000
 
@@ -420,8 +422,8 @@ void Z80::unmapRom( uint16 addr, uint16 size )
 	assert((size&CPU_PAGEMASK)==0);		// addr+size ebenfalls wieder
 	assert(size<=0xffff-addr);			// wrap around address space end
 
-	PgInfo* a = page + (addr>>CPU_PAGEBITS);
-	PgInfo* e = a    + (size>>CPU_PAGEBITS);
+	PageInfo* a = page + (addr>>CPU_PAGEBITS);
+	PageInfo* e = a    + (size>>CPU_PAGEBITS);
 	CoreByte* r = noreadpage-addr;
 	assert( size_t(r)+addr == size_t(noreadpage) );
 
@@ -434,7 +436,7 @@ void Z80::unmapRom( uint16 addr, uint16 size )
 
 /* unmap memory mem[addr,size] with "no memory" and "no waitmap"
 */
-void Z80::unmapRam( uint16 addr, uint16 size )
+void Z80::unmapRam( uint16 addr, uint16 size ) noexcept
 {
 	size -= CPU_PAGESIZE;					// note: size=0  =>  size=0x10000
 
@@ -442,8 +444,8 @@ void Z80::unmapRam( uint16 addr, uint16 size )
 	assert((size&CPU_PAGEMASK)==0);		// addr+size ebenfalls wieder
 	assert(size<=0xffff-addr);			// wrap around address space end
 
-	PgInfo* a = page + (addr>>CPU_PAGEBITS);
-	PgInfo* e = a    + (size>>CPU_PAGEBITS);
+	PageInfo* a = page + (addr>>CPU_PAGEBITS);
+	PageInfo* e = a    + (size>>CPU_PAGEBITS);
 	CoreByte* r = noreadpage-addr;
 	assert( size_t(r)+addr == size_t(noreadpage) );
 	CoreByte* w = nowritepage-addr;
@@ -462,7 +464,7 @@ void Z80::unmapRam( uint16 addr, uint16 size )
    use this if the exact paging location can not be determined easily.
    ((deprecated))
 */
-void Z80::unmapMemory( CoreByte* a, uint32 size )
+void Z80::unmapMemory( CoreByte* a, uint32 size ) noexcept
 {
 	CoreByte* e = a + size;
 	CoreByte* p;
@@ -471,13 +473,13 @@ void Z80::unmapMemory( CoreByte* a, uint32 size )
 	{
 		p = rdPtr(i); if( p>=a && p<e )
 		{
-			PgInfo& p = page[i>>CPU_PAGEBITS];
+			PageInfo& p = page[i>>CPU_PAGEBITS];
 			p.data_r = noreadpage - i;
 		}
 
 		p = wrPtr(i); if( p>=a && p<e )
 		{
-			PgInfo& p = page[i>>CPU_PAGEBITS];
+			PageInfo& p = page[i>>CPU_PAGEBITS];
 			p.data_w = nowritepage - i;
 		}
 	}

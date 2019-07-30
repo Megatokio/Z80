@@ -1,27 +1,27 @@
-/*	Copyright  (c)	Günter Woigk 1996 - 2015
-  					mailto:kio@little-bat.de
+/*	Copyright  (c)	Günter Woigk 1996 - 2019
+					mailto:kio@little-bat.de
 
- 	This program is distributed in the hope that it will be useful,
- 	but WITHOUT ANY WARRANTY; without even the implied warranty of
- 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
- 	Permission to use, copy, modify, distribute, and sell this software and
- 	its documentation for any purpose is hereby granted without fee, provided
- 	that the above copyright notice appear in all copies and that both that
- 	copyright notice and this permission notice appear in supporting
- 	documentation, and that the name of the copyright holder not be used
- 	in advertising or publicity pertaining to distribution of the software
- 	without specific, written prior permission.  The copyright holder makes no
- 	representations about the suitability of this software for any purpose.
- 	It is provided "as is" without express or implied warranty.
+	Permission to use, copy, modify, distribute, and sell this software and
+	its documentation for any purpose is hereby granted without fee, provided
+	that the above copyright notice appear in all copies and that both that
+	copyright notice and this permission notice appear in supporting
+	documentation, and that the name of the copyright holder not be used
+	in advertising or publicity pertaining to distribution of the software
+	without specific, written prior permission.  The copyright holder makes no
+	representations about the suitability of this software for any purpose.
+	It is provided "as is" without express or implied warranty.
 
- 	THE COPYRIGHT HOLDER DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
- 	INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
- 	EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY SPECIAL, INDIRECT OR
- 	CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
- 	DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
- 	TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
- 	PERFORMANCE OF THIS SOFTWARE.
+	THE COPYRIGHT HOLDER DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+	INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+	EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+	CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+	DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+	TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+	PERFORMANCE OF THIS SOFTWARE.
 
 
 	Z80 Emulator
@@ -73,169 +73,227 @@
 #define	SP		registers.sp
 
 
+// ===================================
+// default implementations for macros:
+// ===================================
+
 // read/write data:
 
+// increment cpu cycle counter
 #ifndef INCR_CC
 #define INCR_CC(N)		cc += (N)
 #endif
 
+// increment refresh register
 #ifndef INCR_R
 #define INCR_R()		r += 1
 #endif
 
+// increment instruction counter
 #ifndef INCR_IC
 #define INCR_IC()		/*nop*/
 #endif
 
+// read byte from memory
 #ifndef	PEEK
-#define	PEEK(R,A)		{ INCR_CC(3); R=peek(A); }
-#endif
-#ifndef	POKE
-#define	POKE(A,R)		{ INCR_CC(3); poke(A,R); }
+#define	PEEK(DEST,ADDR)	{ INCR_CC(3); DEST = peek(ADDR); }
 #endif
 
+// write byte into memory
+#ifndef	POKE
+#define	POKE(ADDR,BYTE)	{ INCR_CC(3); poke(ADDR,BYTE); }
+#endif
+
+// read instruction byte at PC (M1 cycle)
 #ifndef	GET_INSTR
-#define	GET_INSTR(R)	{ INCR_CC(4); INCR_R(); INCR_IC(); R=peek(pc++); }
+#define	GET_INSTR(R)	{ INCR_CC(4); INCR_R(); INCR_IC(); R = peek(pc++); }
 #endif
+
+// read 2nd instruction byte after 0xCB opcode
 #ifndef	GET_CB_OP
-#define	GET_CB_OP(R)	{ INCR_CC(4); INCR_R(); R=peek(pc++); }
+#define	GET_CB_OP(R)	{ INCR_CC(4); INCR_R(); R = peek(pc++); }
 #endif
+
+// read 2nd instruction byte after 0xED opcode
 #ifndef	GET_ED_OP
-#define	GET_ED_OP(R)	{ INCR_CC(4); INCR_R(); R=peek(pc++); }
+#define	GET_ED_OP(R)	{ INCR_CC(4); INCR_R(); R = peek(pc++); }
 #endif
+
+// read 2nd instruction byte after IX or IY opcode prefix
 #ifndef	GET_XY_OP
-#define	GET_XY_OP(R)	{ INCR_CC(4); INCR_R(); R=peek(pc++); }
+#define	GET_XY_OP(R)	{ INCR_CC(4); INCR_R(); R = peek(pc++); }
 #endif
+
+// read 3rd instruction byte after IX or IY prefix and 0xCB opcode
 #ifndef	GET_XYCB_OP
-#define	GET_XYCB_OP(R)	{ INCR_CC(5); R=peek(pc++); }
+#define	GET_XYCB_OP(R)	{ INCR_CC(5); R = peek(pc++); }
 #endif
+
+// read byte at PC
 #ifndef	GET_N
-#define	GET_N(R)		{ INCR_CC(3); R=peek(pc++); }
+#define	GET_N(R)		{ INCR_CC(3); R = peek(pc++); }
 #endif
+
+// dummy read byte at PC
 #ifndef	SKIP_N
 #define	SKIP_N()		{ INCR_CC(3); peek(pc++); }
 #endif
 
-#ifndef SKIP_5X1CC
-#define SKIP_5X1CC(RR)	{ INCR_CC(5); }
-#endif
-
+// increment cpu cycle counter
 #ifndef SKIP_1CC
 #define SKIP_1CC(RR)	{ INCR_CC(1); }
 #endif
-
 #ifndef SKIP_2X1CC
 #define SKIP_2X1CC(RR)	{ INCR_CC(2); }
 #endif
-
 #ifndef SKIP_4X1CC
 #define SKIP_4X1CC(RR)	{ INCR_CC(4); }
 #endif
-
+#ifndef SKIP_5X1CC
+#define SKIP_5X1CC(RR)	{ INCR_CC(5); }
+#endif
 #ifndef SKIP_7X1CC
 #define SKIP_7X1CC(RR)	{ INCR_CC(7); }
 #endif
 
-
-#ifndef OUTPUT			
-#define	OUTPUT(A,B)		{ INCR_CC(4); this->handle_output(cc-2,A,B); }
+// output byte to address
+// this calls the Z80 member function handle_output(cc,addr,byte)
+// the default implementation of this function iterates over all other Items 'behind' the Z80.
+// #define Z80_NO_handle_output in Z80options.h to use your own implementation.
+#ifndef OUTPUT
+#define	OUTPUT(ADDR,BYTE) { INCR_CC(4); this->handle_output(cc-2,ADDR,BYTE); }
 #endif
 
-#ifndef INPUT			
-#define	INPUT(A,B)		{ INCR_CC(4); B = this->handle_input(cc-2,A); }
+// input byte from address
+// this calls the Z80 member function handle_input(cc,addr)
+// the default implementation of this function iterates over all other Items 'behind' the Z80.
+// #define Z80_NO_handle_input in Z80options.h to use your own implementation.
+#ifndef INPUT
+#define	INPUT(ADDR,DEST) { INCR_CC(4); DEST = this->handle_input(cc-2,ADDR); }
 #endif
 
-#ifndef UPDATE		
-#define UPDATE()		{ cc_next_update = this->handle_update(cc, cc_exit); }
+// call each item's update(cc) member function.
+// this calls the Z80 member function handle_update(cc).
+// the default implementation of this function iterates over all other Items 'behind' the Z80.
+// #define Z80_NO_handle_update in Z80options.h to use your own implementation.
+#ifndef UPDATE
+#define UPDATE() { cc_next_update = this->handle_update(cc, cc_exit); }
 #endif
 
 
-// hooks:
+// =====================================
+// call-backs at some intersting points:
+// =====================================
 
+// Z80 constructor
 #ifndef Z80_INFO_CTOR
 #define	Z80_INFO_CTOR			/* nop */
 #endif
 
+// Z80 destructor
 #ifndef Z80_INFO_DTOR
 #define	Z80_INFO_DTOR			/* nop */
 #endif
 
+// processing interrupt:
 #ifndef Z80_INFO_IRPT			/* cpu cycle of irpt ack is cc-2 */
 #define Z80_INFO_IRPT()			/* nop */
 #endif
 
+// processing NMI:
 #ifndef Z80_INFO_NMI			/* cpu cycle of nmi ack is cc-2 */
 #define	Z80_INFO_NMI()			/* nop */
 #endif
 
+// execute RETI
 #ifndef Z80_INFO_RETI
 #define	Z80_INFO_RETI			/* nop */
 #endif
 
+// execute RETN
 #ifndef Z80_INFO_RETN
 #define	Z80_INFO_RETN			/* nop */
 #endif
 
+// execute HALT
 #ifndef Z80_INFO_HALT
 #define	Z80_INFO_HALT			/* nop */
 #endif
 
+// executing an illegal instruction:
 #ifndef Z80_INFO_ILLEGAL
 #define Z80_INFO_ILLEGAL(CC,PC)	/* nop */
 #endif
 
+// pop value from stack
+// probably needed for a single stepper / debugger
 #ifndef Z80_INFO_POP
 #define Z80_INFO_POP			/* nop */
 #endif
 
+// execute return opcode
+// probably needed for a single stepper / debugger
 #ifndef Z80_INFO_RET
 #define Z80_INFO_RET			/* nop */
 #endif
 
+// excute EX HL,(SP)
+// probably needed for a single stepper / debugger
 #ifndef Z80_INFO_EX_HL_xSP
 #define Z80_INFO_EX_HL_xSP		/* nop */
 #endif
 
+// execute RST 0 opdode
 #ifndef Z80_INFO_RST00
 #define Z80_INFO_RST00			/* nop */
 #endif
 
+// execute RST 8 opdode
 #ifndef Z80_INFO_RST08
 #define Z80_INFO_RST08			/* nop */
 #endif
 
+// execute RST 0x10 opdode
 #ifndef Z80_INFO_RST10
 #define Z80_INFO_RST10			/* nop */
 #endif
 
+// execute RST 0x18 opdode
 #ifndef Z80_INFO_RST18
 #define Z80_INFO_RST18			/* nop */
 #endif
 
+// execute RST 0x20 opdode
 #ifndef Z80_INFO_RST20
 #define Z80_INFO_RST20			/* nop */
 #endif
 
+// execute RST 0x28 opdode
 #ifndef Z80_INFO_RST28
 #define Z80_INFO_RST28			/* nop */
 #endif
 
+// execute RST 0x30 opdode
 #ifndef Z80_INFO_RST30
 #define Z80_INFO_RST30			/* nop */
 #endif
 
+// execute RST 0x38 opdode
 #ifndef Z80_INFO_RST38
 #define Z80_INFO_RST38			/* nop */
 #endif
 
+// execute EI opcode
 #ifndef Z80_INFO_EI
 #define Z80_INFO_EI				/* nop */
 #endif
 
+// execute LD R,A opcode
 #ifndef Z80_INFO_LD_R_A
 #define Z80_INFO_LD_R_A			/* nop */
 #endif
 
+// execute LD I,A opcode
 #ifndef Z80_INFO_LD_I_A
 #define Z80_INFO_LD_I_A			/* nop */
 #endif
@@ -245,7 +303,7 @@
 
 // --------------------------------------------------------------------
 // ----	INSTRUCTION MACROS --------------------------------------------
-//		no user servicable parts inside.
+//		no user serviceable parts inside.
 // --------------------------------------------------------------------
 
 
